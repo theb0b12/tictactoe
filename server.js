@@ -9,14 +9,21 @@ const io = socketIo(server);
 
 const PORT = process.env.PORT || 3000;
 
-// Serve static files
 app.use(express.static(path.join(__dirname)));
 
-// Single game state for everyone
+// Game state for Ultimate Tic-Tac-Toe
 let gameState = {
-    board: ['', '', '', '', '', '', '', '', ''],
+    // 9 small boards, each with 9 cells
+    boards: Array(9).fill(null).map(() => Array(9).fill('')),
+    // Winners of each small board (null, 'X', 'O', or 'tie')
+    boardWinners: Array(9).fill(null),
+    // Overall game winner
+    winner: null,
     currentTurn: 'X',
-    winner: null
+    // Which board must be played in next (null = any board)
+    activeBoard: null,
+    playerX: null,
+    playerO: null
 };
 
 function checkWinner(board) {
@@ -33,7 +40,7 @@ function checkWinner(board) {
         }
     }
 
-    if (!board.includes('')) {
+    if (!board.includes('') && !board.includes(null)) {
         return 'tie';
     }
 
@@ -43,32 +50,74 @@ function checkWinner(board) {
 io.on('connection', (socket) => {
     console.log('New player connected:', socket.id);
     
-    // Send current game state to new player
-    socket.emit('gameUpdate', gameState);
+    let playerSymbol = null;
+    if (!gameState.playerX) {
+        gameState.playerX = socket.id;
+        playerSymbol = 'X';
+        console.log('Player assigned as X');
+    } else if (!gameState.playerO) {
+        gameState.playerO = socket.id;
+        playerSymbol = 'O';
+        console.log('Player assigned as O');
+    } else {
+        playerSymbol = 'spectator';
+        console.log('Player joined as spectator');
+    }
+    
+    socket.emit('playerAssigned', { symbol: playerSymbol, gameState: gameState });
+    io.emit('gameUpdate', gameState);
 
     socket.on('makeMove', (data) => {
-        const { index } = data;
+        const { boardIndex, cellIndex } = data;
         
-        if (gameState.board[index] !== '' || gameState.winner !== null) return;
+        const isPlayerX = socket.id === gameState.playerX;
+        const isPlayerO = socket.id === gameState.playerO;
+        const isTheirTurn = (isPlayerX && gameState.currentTurn === 'X') || 
+                           (isPlayerO && gameState.currentTurn === 'O');
+        
+        if (!isTheirTurn) return;
+        
+        // Check if move is valid
+        if (gameState.winner !== null) return;
+        if (gameState.boardWinners[boardIndex] !== null) return;
+        if (gameState.boards[boardIndex][cellIndex] !== '') return;
+        if (gameState.activeBoard !== null && gameState.activeBoard !== boardIndex) return;
 
-        gameState.board[index] = gameState.currentTurn;
+        // Make the move
+        gameState.boards[boardIndex][cellIndex] = gameState.currentTurn;
+        
+        // Check if this small board is won
+        const boardWinner = checkWinner(gameState.boards[boardIndex]);
+        if (boardWinner) {
+            gameState.boardWinners[boardIndex] = boardWinner;
+            
+            // Check if overall game is won
+            const gameWinner = checkWinner(gameState.boardWinners);
+            if (gameWinner) {
+                gameState.winner = gameWinner;
+            }
+        }
+        
+        // Set next active board
+        // If the target board is already won or tied, player can play anywhere
+        if (gameState.boardWinners[cellIndex] !== null) {
+            gameState.activeBoard = null;
+        } else {
+            gameState.activeBoard = cellIndex;
+        }
+        
+        // Switch turns
         gameState.currentTurn = gameState.currentTurn === 'X' ? 'O' : 'X';
         
-        const winner = checkWinner(gameState.board);
-        if (winner) {
-            gameState.winner = winner;
-        }
-
-        // Send update to all connected players
         io.emit('gameUpdate', gameState);
     });
 
     socket.on('resetGame', () => {
-        gameState = {
-            board: ['', '', '', '', '', '', '', '', ''],
-            currentTurn: 'X',
-            winner: null
-        };
+        gameState.boards = Array(9).fill(null).map(() => Array(9).fill(''));
+        gameState.boardWinners = Array(9).fill(null);
+        gameState.winner = null;
+        gameState.currentTurn = 'X';
+        gameState.activeBoard = null;
         
         io.emit('gameUpdate', gameState);
         console.log('Game reset');
@@ -76,6 +125,16 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         console.log('Player disconnected:', socket.id);
+        
+        if (socket.id === gameState.playerX) {
+            gameState.playerX = null;
+            console.log('Player X disconnected');
+        } else if (socket.id === gameState.playerO) {
+            gameState.playerO = null;
+            console.log('Player O disconnected');
+        }
+        
+        io.emit('gameUpdate', gameState);
     });
 });
 

@@ -9,8 +9,8 @@ On other devices on the same network: Find your local IP address and use http://
 
 How to play:
 
-Player 1 enters as x
+Player 1 enters as X
 
-Player 2 enters as y
+Player 2 enters as O
 
 Both players can now play in real time YAYAYAYA!

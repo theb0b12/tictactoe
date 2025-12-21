@@ -1,4 +1,7 @@
 tic tak toe for the boys
+do 
+- npm install
+- npm start
 
 On your machine(if its the one running node js): Open http://localhost:3000 in your browser
 

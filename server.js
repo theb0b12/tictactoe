@@ -12,8 +12,12 @@ const PORT = process.env.PORT || 3000;
 // Serve static files
 app.use(express.static(path.join(__dirname)));
 
-// Store active games in memory
-const games = {};
+// Single game state for everyone
+let gameState = {
+    board: ['', '', '', '', '', '', '', '', ''],
+    currentTurn: 'X',
+    winner: null
+};
 
 function checkWinner(board) {
     const lines = [
@@ -37,96 +41,41 @@ function checkWinner(board) {
 }
 
 io.on('connection', (socket) => {
-    console.log('New client connected:', socket.id);
-
-    socket.on('createGame', (data) => {
-        const { gameCode, playerName } = data;
-        
-        games[gameCode] = {
-            board: ['', '', '', '', '', '', '', '', ''],
-            currentTurn: 'X',
-            player1: playerName,
-            player2: null,
-            winner: null,
-            gameCode: gameCode,
-            player1Socket: socket.id,
-            player2Socket: null
-        };
-
-        socket.join(gameCode);
-        socket.emit('gameCreated', { gameState: games[gameCode] });
-        console.log(`Game created: ${gameCode} by ${playerName}`);
-    });
-
-    socket.on('joinGame', (data) => {
-        const { gameCode, playerName } = data;
-        
-        if (!games[gameCode]) {
-            socket.emit('gameNotFound');
-            return;
-        }
-
-        if (games[gameCode].player2) {
-            socket.emit('gameFull');
-            return;
-        }
-
-        games[gameCode].player2 = playerName;
-        games[gameCode].player2Socket = socket.id;
-
-        socket.join(gameCode);
-        
-        io.to(gameCode).emit('gameUpdate', games[gameCode]);
-        socket.emit('gameJoined', { symbol: 'O', gameState: games[gameCode] });
-        
-        console.log(`${playerName} joined game: ${gameCode}`);
-    });
+    console.log('New player connected:', socket.id);
+    
+    // Send current game state to new player
+    socket.emit('gameUpdate', gameState);
 
     socket.on('makeMove', (data) => {
-        const { gameCode, index, playerSymbol } = data;
+        const { index } = data;
         
-        if (!games[gameCode]) return;
-        
-        const game = games[gameCode];
-        
-        if (game.board[index] !== '' || game.winner !== null) return;
-        if (game.currentTurn !== playerSymbol) return;
+        if (gameState.board[index] !== '' || gameState.winner !== null) return;
 
-        game.board[index] = playerSymbol;
-        game.currentTurn = playerSymbol === 'X' ? 'O' : 'X';
+        gameState.board[index] = gameState.currentTurn;
+        gameState.currentTurn = gameState.currentTurn === 'X' ? 'O' : 'X';
         
-        const winner = checkWinner(game.board);
+        const winner = checkWinner(gameState.board);
         if (winner) {
-            game.winner = winner;
+            gameState.winner = winner;
         }
 
-        io.to(gameCode).emit('gameUpdate', game);
+        // Send update to all connected players
+        io.emit('gameUpdate', gameState);
     });
 
-    socket.on('leaveGame', (data) => {
-        const { gameCode } = data;
+    socket.on('resetGame', () => {
+        gameState = {
+            board: ['', '', '', '', '', '', '', '', ''],
+            currentTurn: 'X',
+            winner: null
+        };
         
-        if (games[gameCode]) {
-            delete games[gameCode];
-            io.to(gameCode).emit('gameEnded');
-            console.log(`Game deleted: ${gameCode}`);
-        }
-        
-        socket.leave(gameCode);
+        io.emit('gameUpdate', gameState);
+        console.log('Game reset');
     });
 
     socket.on('disconnect', () => {
-        console.log('Client disconnected:', socket.id);
-        
-        // Clean up games when a player disconnects
-        for (let gameCode in games) {
-            if (games[gameCode].player1Socket === socket.id || 
-                games[gameCode].player2Socket === socket.id) {
-                io.to(gameCode).emit('playerDisconnected');
-                delete games[gameCode];
-                console.log(`Game ${gameCode} ended due to disconnect`);
-            }
-        }
+        console.log('Player disconnected:', socket.id);
     });
 });
 

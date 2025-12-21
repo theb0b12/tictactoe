@@ -9,8 +9,8 @@ On other devices on the same network: Find your local IP address and use http://
 
 How to play:
 
-Player 1 creates a game (leaves game code empty) and gets a code
+Player 1 enters as x
 
-Player 2 enters that code and their name
+Player 2 enters as y
 
-Both players can now play in real-time!
+Both players can now play in real time YAYAYAYA!

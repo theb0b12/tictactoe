@@ -9,11 +9,22 @@ const io = socketIo(server);
 
 const PORT = process.env.PORT || 3000;
 
-// Serve static files
 app.use(express.static(path.join(__dirname)));
 
-// Store active games in memory
-const games = {};
+// Game state for Ultimate Tic-Tac-Toe
+let gameState = {
+    // 9 small boards, each with 9 cells
+    boards: Array(9).fill(null).map(() => Array(9).fill('')),
+    // Winners of each small board (null, 'X', 'O', or 'tie')
+    boardWinners: Array(9).fill(null),
+    // Overall game winner
+    winner: null,
+    currentTurn: 'X',
+    // Which board must be played in next (null = any board)
+    activeBoard: null,
+    playerX: null,
+    playerO: null
+};
 
 function checkWinner(board) {
     const lines = [
@@ -29,7 +40,7 @@ function checkWinner(board) {
         }
     }
 
-    if (!board.includes('')) {
+    if (!board.includes('') && !board.includes(null)) {
         return 'tie';
     }
 
@@ -37,96 +48,93 @@ function checkWinner(board) {
 }
 
 io.on('connection', (socket) => {
-    console.log('New client connected:', socket.id);
-
-    socket.on('createGame', (data) => {
-        const { gameCode, playerName } = data;
-        
-        games[gameCode] = {
-            board: ['', '', '', '', '', '', '', '', ''],
-            currentTurn: 'X',
-            player1: playerName,
-            player2: null,
-            winner: null,
-            gameCode: gameCode,
-            player1Socket: socket.id,
-            player2Socket: null
-        };
-
-        socket.join(gameCode);
-        socket.emit('gameCreated', { gameState: games[gameCode] });
-        console.log(`Game created: ${gameCode} by ${playerName}`);
-    });
-
-    socket.on('joinGame', (data) => {
-        const { gameCode, playerName } = data;
-        
-        if (!games[gameCode]) {
-            socket.emit('gameNotFound');
-            return;
-        }
-
-        if (games[gameCode].player2) {
-            socket.emit('gameFull');
-            return;
-        }
-
-        games[gameCode].player2 = playerName;
-        games[gameCode].player2Socket = socket.id;
-
-        socket.join(gameCode);
-        
-        io.to(gameCode).emit('gameUpdate', games[gameCode]);
-        socket.emit('gameJoined', { symbol: 'O', gameState: games[gameCode] });
-        
-        console.log(`${playerName} joined game: ${gameCode}`);
-    });
+    console.log('New player connected:', socket.id);
+    
+    let playerSymbol = null;
+    if (!gameState.playerX) {
+        gameState.playerX = socket.id;
+        playerSymbol = 'X';
+        console.log('Player assigned as X');
+    } else if (!gameState.playerO) {
+        gameState.playerO = socket.id;
+        playerSymbol = 'O';
+        console.log('Player assigned as O');
+    } else {
+        playerSymbol = 'spectator';
+        console.log('Player joined as spectator');
+    }
+    
+    socket.emit('playerAssigned', { symbol: playerSymbol, gameState: gameState });
+    io.emit('gameUpdate', gameState);
 
     socket.on('makeMove', (data) => {
-        const { gameCode, index, playerSymbol } = data;
+        const { boardIndex, cellIndex } = data;
         
-        if (!games[gameCode]) return;
+        const isPlayerX = socket.id === gameState.playerX;
+        const isPlayerO = socket.id === gameState.playerO;
+        const isTheirTurn = (isPlayerX && gameState.currentTurn === 'X') || 
+                           (isPlayerO && gameState.currentTurn === 'O');
         
-        const game = games[gameCode];
+        if (!isTheirTurn) return;
         
-        if (game.board[index] !== '' || game.winner !== null) return;
-        if (game.currentTurn !== playerSymbol) return;
+        // Check if move is valid
+        if (gameState.winner !== null) return;
+        if (gameState.boardWinners[boardIndex] !== null) return;
+        if (gameState.boards[boardIndex][cellIndex] !== '') return;
+        if (gameState.activeBoard !== null && gameState.activeBoard !== boardIndex) return;
 
-        game.board[index] = playerSymbol;
-        game.currentTurn = playerSymbol === 'X' ? 'O' : 'X';
+        // Make the move
+        gameState.boards[boardIndex][cellIndex] = gameState.currentTurn;
         
-        const winner = checkWinner(game.board);
-        if (winner) {
-            game.winner = winner;
+        // Check if this small board is won
+        const boardWinner = checkWinner(gameState.boards[boardIndex]);
+        if (boardWinner) {
+            gameState.boardWinners[boardIndex] = boardWinner;
+            
+            // Check if overall game is won
+            const gameWinner = checkWinner(gameState.boardWinners);
+            if (gameWinner) {
+                gameState.winner = gameWinner;
+            }
         }
-
-        io.to(gameCode).emit('gameUpdate', game);
+        
+        // Set next active board
+        // If the target board is already won or tied, player can play anywhere
+        if (gameState.boardWinners[cellIndex] !== null) {
+            gameState.activeBoard = null;
+        } else {
+            gameState.activeBoard = cellIndex;
+        }
+        
+        // Switch turns
+        gameState.currentTurn = gameState.currentTurn === 'X' ? 'O' : 'X';
+        
+        io.emit('gameUpdate', gameState);
     });
 
-    socket.on('leaveGame', (data) => {
-        const { gameCode } = data;
+    socket.on('resetGame', () => {
+        gameState.boards = Array(9).fill(null).map(() => Array(9).fill(''));
+        gameState.boardWinners = Array(9).fill(null);
+        gameState.winner = null;
+        gameState.currentTurn = 'X';
+        gameState.activeBoard = null;
         
-        if (games[gameCode]) {
-            delete games[gameCode];
-            io.to(gameCode).emit('gameEnded');
-            console.log(`Game deleted: ${gameCode}`);
-        }
-        
-        socket.leave(gameCode);
+        io.emit('gameUpdate', gameState);
+        console.log('Game reset');
     });
 
     socket.on('disconnect', () => {
-        console.log('Client disconnected:', socket.id);
+        console.log('Player disconnected:', socket.id);
         
-        // Clean up games when a player disconnects
-        for (let gameCode in games) {
-            if (games[gameCode].player1Socket === socket.id || 
-                games[gameCode].player2Socket === socket.id) {
-                io.to(gameCode).emit('playerDisconnected');
-                delete games[gameCode];
-                console.log(`Game ${gameCode} ended due to disconnect`);
-            }
+        if (socket.id === gameState.playerX) {
+            gameState.playerX = null;
+            console.log('Player X disconnected');
+        } else if (socket.id === gameState.playerO) {
+            gameState.playerO = null;
+            console.log('Player O disconnected');
         }
+        
+        io.emit('gameUpdate', gameState);
     });
 });
 

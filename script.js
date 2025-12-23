@@ -1,216 +1,144 @@
-let gameCode = '';
-let playerName = '';
-let playerSymbol = '';
+const socket = io();
+
 let gameState = null;
-let pollInterval = null;
+let mySymbol = null;
 
-function generateGameCode() {
-    return Math.random().toString(36).substring(2, 8).toUpperCase();
-}
+socket.on('playerAssigned', (data) => {
+    console.log('Player assigned:', data);
+    mySymbol = data.symbol;
+    gameState = data.gameState;
+    console.log('Game state received:', gameState);
+    renderBoard();
+    updateGameInfo();
+});
 
-async function joinGame() {
-    const code = document.getElementById('gameCode').value.trim().toUpperCase();
-    playerName = document.getElementById('playerName').value.trim();
-
-    if (!playerName) {
-        alert('Please enter your name');
-        return;
-    }
-
-    try {
-        if (code) {
-            gameCode = code;
-            const result = await window.storage.get(`game:${gameCode}`, true);
-            
-            if (!result) {
-                alert('Game not found');
-                return;
-            }
-
-            gameState = JSON.parse(result.value);
-
-            if (gameState.player2) {
-                alert('Game is full');
-                return;
-            }
-
-            gameState.player2 = playerName;
-            playerSymbol = 'O';
-            await window.storage.set(`game:${gameCode}`, JSON.stringify(gameState), true);
-        } else {
-            gameCode = generateGameCode();
-            playerSymbol = 'X';
-            gameState = {
-                board: ['', '', '', '', '', '', '', '', ''],
-                currentTurn: 'X',
-                player1: playerName,
-                player2: null,
-                winner: null,
-                gameCode: gameCode
-            };
-            await window.storage.set(`game:${gameCode}`, JSON.stringify(gameState), true);
-        }
-
-        document.getElementById('setupScreen').classList.add('hidden');
-        document.getElementById('gameScreen').classList.remove('hidden');
-        
-        renderBoard();
-        updateGameInfo();
-        startPolling();
-    } catch (error) {
-        console.error('Error joining game:', error);
-        alert('Error joining game. Please try again.');
-    }
-}
+socket.on('gameUpdate', (data) => {
+    console.log('Game update received:', data);
+    gameState = data;
+    renderBoard();
+    updateGameInfo();
+});
 
 function renderBoard() {
     const boardEl = document.getElementById('board');
+    
+    if (!gameState || !gameState.boards) {
+        console.log('No game state or boards yet');
+        return;
+    }
+    
     boardEl.innerHTML = '';
+    console.log('Rendering board...');
     
-    for (let i = 0; i < 9; i++) {
-        const cell = document.createElement('button');
-        cell.className = 'cell';
-        cell.textContent = gameState.board[i];
-        if (gameState.board[i]) {
-            cell.classList.add(gameState.board[i].toLowerCase());
+    // Create 9 small boards
+    for (let boardIndex = 0; boardIndex < 9; boardIndex++) {
+        const smallBoard = document.createElement('div');
+        smallBoard.className = 'small-board';
+        
+        // Check if this board is active (where player must play)
+        const isActive = gameState.activeBoard === null || gameState.activeBoard === boardIndex;
+        const isWon = gameState.boardWinners[boardIndex] !== null;
+        
+        if (isActive && !isWon && gameState.winner === null) {
+            smallBoard.classList.add('active');
         }
-        cell.onclick = () => makeMove(i);
-        cell.disabled = gameState.board[i] !== '' || 
-                        gameState.winner !== null || 
-                        gameState.currentTurn !== playerSymbol ||
-                        !gameState.player2;
-        boardEl.appendChild(cell);
+        
+        // If board is won, show winner overlay
+        if (isWon) {
+            smallBoard.classList.add('won');
+            const winnerOverlay = document.createElement('div');
+            winnerOverlay.className = 'winner-overlay';
+            winnerOverlay.textContent = gameState.boardWinners[boardIndex] === 'tie' ? '' : gameState.boardWinners[boardIndex];
+            smallBoard.appendChild(winnerOverlay);
+        }
+        
+        // Create 9 cells in each small board
+        for (let cellIndex = 0; cellIndex < 9; cellIndex++) {
+            const cell = document.createElement('button');
+            cell.className = 'cell';
+            cell.textContent = gameState.boards[boardIndex][cellIndex];
+            
+            if (gameState.boards[boardIndex][cellIndex]) {
+                cell.classList.add(gameState.boards[boardIndex][cellIndex].toLowerCase());
+            }
+            
+            cell.onclick = () => makeMove(boardIndex, cellIndex);
+            
+            // Disable cell if:
+            const isMyTurn = gameState.currentTurn === mySymbol;
+            const isBoardActive = gameState.activeBoard === null || gameState.activeBoard === boardIndex;
+            const cellFilled = gameState.boards[boardIndex][cellIndex] !== '';
+            const boardWon = gameState.boardWinners[boardIndex] !== null;
+            
+            cell.disabled = !isMyTurn || 
+                           !isBoardActive || 
+                           cellFilled || 
+                           boardWon || 
+                           gameState.winner !== null ||
+                           mySymbol === 'spectator';
+            
+            smallBoard.appendChild(cell);
+        }
+        
+        boardEl.appendChild(smallBoard);
     }
+    console.log('Board rendered successfully');
 }
 
-async function makeMove(index) {
-    if (gameState.board[index] !== '' || gameState.winner !== null) return;
-    if (gameState.currentTurn !== playerSymbol) return;
-    if (!gameState.player2) return;
-
-    gameState.board[index] = playerSymbol;
-    gameState.currentTurn = playerSymbol === 'X' ? 'O' : 'X';
+function makeMove(boardIndex, cellIndex) {
+    if (!gameState) return;
     
-    const winner = checkWinner();
-    if (winner) {
-        gameState.winner = winner;
-    }
-
-    try {
-        await window.storage.set(`game:${gameCode}`, JSON.stringify(gameState), true);
-        renderBoard();
-        updateGameInfo();
-    } catch (error) {
-        console.error('Error making move:', error);
-        alert('Error making move. Please try again.');
-    }
-}
-
-function checkWinner() {
-    const lines = [
-        [0, 1, 2], [3, 4, 5], [6, 7, 8],
-        [0, 3, 6], [1, 4, 7], [2, 5, 8],
-        [0, 4, 8], [2, 4, 6]
-    ];
-
-    for (let line of lines) {
-        const [a, b, c] = line;
-        if (gameState.board[a] && 
-            gameState.board[a] === gameState.board[b] && 
-            gameState.board[a] === gameState.board[c]) {
-            return gameState.board[a];
-        }
-    }
-
-    if (!gameState.board.includes('')) {
-        return 'tie';
-    }
-
-    return null;
+    const isMyTurn = gameState.currentTurn === mySymbol;
+    const isBoardActive = gameState.activeBoard === null || gameState.activeBoard === boardIndex;
+    
+    if (!isMyTurn || !isBoardActive || mySymbol === 'spectator') return;
+    if (gameState.boards[boardIndex][cellIndex] !== '') return;
+    if (gameState.boardWinners[boardIndex] !== null) return;
+    if (gameState.winner !== null) return;
+    
+    console.log('Making move:', boardIndex, cellIndex);
+    socket.emit('makeMove', { boardIndex, cellIndex });
 }
 
 function updateGameInfo() {
+    if (!gameState) return;
+    
     const statusEl = document.getElementById('status');
-    const gameInfoEl = document.getElementById('gameInfo');
     const turnInfoEl = document.getElementById('turnInfo');
     const winnerEl = document.getElementById('winner');
 
-    gameInfoEl.textContent = `Game Code: ${gameCode} | You are: ${playerSymbol}`;
-
-    if (!gameState.player2) {
-        statusEl.textContent = 'Waiting for opponent to join...';
-        statusEl.classList.add('waiting');
-        turnInfoEl.textContent = 'Share the game code with your friend!';
-        winnerEl.textContent = '';
+    if (mySymbol === 'spectator') {
+        statusEl.textContent = 'You are spectating';
+    } else if (mySymbol) {
+        statusEl.textContent = `You are: ${mySymbol}`;
     } else {
-        statusEl.classList.remove('waiting');
-        
-        if (gameState.winner) {
-            if (gameState.winner === 'tie') {
-                winnerEl.textContent = "It's a tie!";
-                statusEl.textContent = 'Game Over';
-            } else {
-                const winnerName = gameState.winner === 'X' ? gameState.player1 : gameState.player2;
-                winnerEl.textContent = `${winnerName} wins!`;
-                statusEl.textContent = 'Game Over';
-            }
-            turnInfoEl.textContent = '';
+        statusEl.textContent = 'Connecting...';
+    }
+
+    if (gameState.winner) {
+        if (gameState.winner === 'tie') {
+            winnerEl.textContent = "It's a tie!";
         } else {
-            winnerEl.textContent = '';
-            const currentPlayer = gameState.currentTurn === 'X' ? gameState.player1 : gameState.player2;
-            statusEl.textContent = `${gameState.player1} (X) vs ${gameState.player2} (O)`;
-            
-            if (gameState.currentTurn === playerSymbol) {
-                turnInfoEl.textContent = 'Your turn!';
+            winnerEl.textContent = `${gameState.winner} wins!`;
+        }
+        turnInfoEl.textContent = '';
+    } else {
+        winnerEl.textContent = '';
+        
+        if (!gameState.playerX || !gameState.playerO) {
+            turnInfoEl.textContent = 'Waiting for another player...';
+        } else if (gameState.currentTurn === mySymbol) {
+            if (gameState.activeBoard === null) {
+                turnInfoEl.textContent = 'Your turn! Play in any available board';
             } else {
-                turnInfoEl.textContent = `Waiting for ${currentPlayer}...`;
+                turnInfoEl.textContent = 'Your turn! Play in the highlighted board';
             }
+        } else {
+            turnInfoEl.textContent = `Waiting for ${gameState.currentTurn}...`;
         }
     }
 }
 
-function startPolling() {
-    pollInterval = setInterval(async () => {
-        try {
-            const result = await window.storage.get(`game:${gameCode}`, true);
-            if (result) {
-                gameState = JSON.parse(result.value);
-                renderBoard();
-                updateGameInfo();
-            }
-        } catch (error) {
-            console.error('Error polling game state:', error);
-        }
-    }, 1000);
-}
-
-function stopPolling() {
-    if (pollInterval) {
-        clearInterval(pollInterval);
-        pollInterval = null;
-    }
-}
-
-async function resetGame() {
-    stopPolling();
-    
-    try {
-        await window.storage.delete(`game:${gameCode}`, true);
-    } catch (error) {
-        console.error('Error deleting game:', error);
-    }
-
-    gameCode = '';
-    playerName = '';
-    playerSymbol = '';
-    gameState = null;
-
-    document.getElementById('setupScreen').classList.remove('hidden');
-    document.getElementById('gameScreen').classList.add('hidden');
-    document.getElementById('gameCode').value = '';
-    document.getElementById('playerName').value = '';
-}
-
-function leaveGame() {
-    resetGame();
+function resetGame() {
+    socket.emit('resetGame');
 }

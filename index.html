@@ -11,14 +11,24 @@
     <div class="container">
         <h1>Ultimate Tic Tac Toe</h1>
         
-        <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</button>
+        <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()">Dark Mode</button>
         
         <div id="gameScreen">
             <div class="status" id="status">Connecting...</div>
             <div class="game-info">
                 <div id="turnInfo"></div>
             </div>
-            <div class="board" id="board"></div>
+            <div class="game-container">
+                <div class="board" id="board"></div>
+                <div class="chat-section">
+                    <div class="chat-header">Chat + Moves</div>
+                    <div class="chat-messages" id="chatMessages"></div>
+                    <div class="chat-input-container">
+                        <input type="text" id="chatInput" placeholder="Type a message..." maxlength="200">
+                        <button onclick="sendMessage()" class="send-btn">Send</button>
+                    </div>
+                </div>
+            </div>
             <div id="winner" class="winner"></div>
             <button onclick="resetGame()">Reset Game</button>
         </div>

@@ -23,7 +23,9 @@ let gameState = {
     // Which board must be played in next (null = any board)
     activeBoard: null,
     playerX: null,
-    playerO: null
+    playerO: null,
+    chatMessages: [],
+    moveHistory: []
 };
 
 function checkWinner(board) {
@@ -84,7 +86,16 @@ io.on('connection', (socket) => {
         if (gameState.activeBoard !== null && gameState.activeBoard !== boardIndex) return;
 
         // Make the move
-        gameState.boards[boardIndex][cellIndex] = gameState.currentTurn;
+        const symbol = gameState.currentTurn;
+        gameState.boards[boardIndex][cellIndex] = symbol;
+        
+        // Add to move history
+        gameState.moveHistory.push({
+            player: symbol,
+            boardIndex: boardIndex,
+            cellIndex: cellIndex,
+            timestamp: Date.now()
+        });
         
         // Check if this small board is won
         const boardWinner = checkWinner(gameState.boards[boardIndex]);
@@ -118,9 +129,39 @@ io.on('connection', (socket) => {
         gameState.winner = null;
         gameState.currentTurn = 'X';
         gameState.activeBoard = null;
+        gameState.moveHistory = [];
         
         io.emit('gameUpdate', gameState);
         console.log('Game reset');
+    });
+
+    socket.on('chatMessage', (data) => {
+        const { message } = data;
+        
+        console.log('Chat message received:', message, 'from socket:', socket.id);
+        
+        let username = 'Spectator';
+        if (socket.id === gameState.playerX) {
+            username = 'Player X';
+        } else if (socket.id === gameState.playerO) {
+            username = 'Player O';
+        }
+        
+        const chatMessage = {
+            username: username,
+            message: message,
+            timestamp: Date.now()
+        };
+        
+        gameState.chatMessages.push(chatMessage);
+        
+        // Keep only last 50 messages
+        if (gameState.chatMessages.length > 50) {
+            gameState.chatMessages.shift();
+        }
+        
+        console.log('Broadcasting chat message:', chatMessage);
+        io.emit('chatMessage', chatMessage);
     });
 
     socket.on('disconnect', () => {

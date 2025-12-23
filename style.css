@@ -6,8 +6,8 @@
 
 body {
     font-family: 'Georgia', serif;
-    background: #2d4a3e;
-    color: #d4e4d8;
+    background: #fdf6e3;
+    color: #657b83;
     min-height: 100vh;
     display: flex;
     justify-content: center;
@@ -16,33 +16,22 @@ body {
 }
 
 .container {
-    max-width: 800px;
+    max-width: 900px;
     width: 100%;
-}
-
-@media (max-width: 768px) {
-    .container {
-        padding: 10px;
-    }
-    
-    h1 {
-        font-size: 1.5em;
-        margin-bottom: 15px;
-    }
 }
 
 h1 {
     text-align: center;
     margin-bottom: 25px;
     font-size: 2em;
-    color: #a8c9b8;
+    color: #586e75;
     font-weight: normal;
 }
 
 button {
-    background: #3d5a4a;
-    color: #d4e4d8;
-    border: 1px solid #5a7a65;
+    background: #eee8d5;
+    color: #657b83;
+    border: 1px solid #93a1a1;
     padding: 10px 20px;
     font-family: 'Georgia', serif;
     font-size: 14px;
@@ -53,57 +42,44 @@ button {
 }
 
 button:hover {
-    background: #4a6b57;
+    background: #e3dcc3;
+    border-color: #657b83;
 }
 
 .game-info {
     text-align: center;
     margin-bottom: 15px;
-    color: #a8c9b8;
+    color: #586e75;
 }
 
 .board {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    margin: 20px 0;
-    padding: 12px;
-    background: #243a30;
+    gap: 15px;
+    margin: 20px auto;
+    padding: 15px;
+    background: #eee8d5;
     border-radius: 8px;
-}
-
-@media (max-width: 768px) {
-    .board {
-        gap: 6px;
-        padding: 6px;
-        margin: 10px 0;
-    }
+    max-width: 700px;
+    border: 1px solid #93a1a1;
 }
 
 .small-board {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 4px;
-    padding: 8px;
-    background: #2d4a3e;
-    border: 2px solid #3d5a4a;
+    gap: 5px;
+    padding: 10px;
+    background: #fdf6e3;
+    border: 2px solid #93a1a1;
     border-radius: 6px;
     position: relative;
     transition: all 0.3s;
 }
 
-@media (max-width: 768px) {
-    .small-board {
-        gap: 2px;
-        padding: 4px;
-        border-width: 1px;
-    }
-}
-
 .small-board.active {
-    border-color: #7a9a85;
-    background: #3d5a4a;
-    box-shadow: 0 0 12px rgba(122, 154, 133, 0.4);
+    border-color: #268bd2;
+    background: #eee8d5;
+    box-shadow: 0 0 15px rgba(38, 139, 210, 0.3);
 }
 
 .small-board.won {
@@ -119,41 +95,30 @@ button:hover {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 64px;
-    color: #a8c9b8;
+    font-size: 72px;
+    color: #268bd2;
     font-weight: bold;
     pointer-events: none;
-    background: rgba(45, 74, 62, 0.7);
+    background: rgba(253, 246, 227, 0.9);
     border-radius: 4px;
-}
-
-@media (max-width: 768px) {
-    .winner-overlay {
-        font-size: 32px;
-    }
 }
 
 .cell {
     aspect-ratio: 1;
-    background: #3d5a4a;
-    border: 1px solid #5a7a65;
+    background: #eee8d5;
+    border: 1px solid #93a1a1;
     border-radius: 3px;
-    font-size: 20px;
+    font-size: 24px;
     font-weight: normal;
-    color: #a8c9b8;
+    color: #268bd2;
     padding: 0;
     margin: 0;
-}
-
-@media (max-width: 768px) {
-    .cell {
-        font-size: 14px;
-        min-height: 25px;
-    }
+    min-height: 35px;
 }
 
 .cell:hover:not(:disabled) {
-    background: #4a6b57;
+    background: #e3dcc3;
+    border-color: #657b83;
 }
 
 .cell:disabled {
@@ -161,19 +126,64 @@ button:hover {
     cursor: not-allowed;
 }
 
+.cell.x {
+    color: #dc322f;
+}
+
+.cell.o {
+    color: #268bd2;
+}
+
 .winner {
     text-align: center;
     font-size: 24px;
     margin: 20px 0;
-    color: #a8c9b8;
+    color: #268bd2;
 }
 
 .status {
     text-align: center;
     padding: 12px;
-    background: #3d5a4a;
-    border: 1px solid #5a7a65;
+    background: #eee8d5;
+    border: 1px solid #93a1a1;
     border-radius: 4px;
     margin-bottom: 15px;
-    color: #d4e4d8;
+    color: #657b83;
+}
+
+/* Mobile styles */
+@media (max-width: 768px) {
+    body {
+        padding: 10px;
+    }
+    
+    .container {
+        padding: 0;
+    }
+    
+    h1 {
+        font-size: 1.5em;
+        margin-bottom: 15px;
+    }
+    
+    .board {
+        gap: 8px;
+        padding: 8px;
+        margin: 10px 0;
+    }
+    
+    .small-board {
+        gap: 3px;
+        padding: 6px;
+        border-width: 1px;
+    }
+    
+    .cell {
+        font-size: 16px;
+        min-height: 28px;
+    }
+    
+    .winner-overlay {
+        font-size: 36px;
+    }
 }

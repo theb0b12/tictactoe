@@ -141,16 +141,20 @@ io.on('connection', (socket) => {
         console.log('Chat message received:', message, 'from socket:', socket.id);
         
         let username = 'Spectator';
+        let playerSymbol = null;
         if (socket.id === gameState.playerX) {
             username = 'Player X';
+            playerSymbol = 'X';
         } else if (socket.id === gameState.playerO) {
             username = 'Player O';
+            playerSymbol = 'O';
         }
         
         const chatMessage = {
             username: username,
             message: message,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            player: playerSymbol
         };
         
         gameState.chatMessages.push(chatMessage);

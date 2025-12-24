@@ -9,15 +9,39 @@ socket.on('playerAssigned', (data) => {
     gameState = data.gameState;
     console.log('Game state received:', gameState);
     
-    // Load existing chat messages
+    // Clear chat display first
+    const chatMessages = document.getElementById('chatMessages');
+    chatMessages.innerHTML = '';
+    
+    // Rebuild chat from scratch using both chat messages and move history
+    // We need to interleave them based on timestamp
+    const allMessages = [];
+    
+    // Add chat messages
     if (gameState.chatMessages && gameState.chatMessages.length > 0) {
-        gameState.chatMessages.forEach(msg => displayChatMessage(msg));
+        gameState.chatMessages.forEach(msg => {
+            allMessages.push({ type: 'chat', data: msg, timestamp: msg.timestamp });
+        });
     }
     
-    // Load existing move history
+    // Add move history
     if (gameState.moveHistory && gameState.moveHistory.length > 0) {
-        gameState.moveHistory.forEach(() => displayMoveHistory());
+        gameState.moveHistory.forEach(move => {
+            allMessages.push({ type: 'move', data: move, timestamp: move.timestamp });
+        });
     }
+    
+    // Sort by timestamp
+    allMessages.sort((a, b) => a.timestamp - b.timestamp);
+    
+    // Display in order
+    allMessages.forEach(item => {
+        if (item.type === 'chat') {
+            displayChatMessage(item.data);
+        } else if (item.type === 'move') {
+            displayMove(item.data);
+        }
+    });
     
     renderBoard();
     updateGameInfo();
@@ -37,6 +61,7 @@ socket.on('gameUpdate', (data) => {
 });
 
 socket.on('chatMessage', (message) => {
+    console.log('Chat message received on client:', message);
     displayChatMessage(message);
 });
 
@@ -185,9 +210,21 @@ function sendMessage() {
 }
 
 function displayChatMessage(msg) {
+    console.log('Displaying chat message:', msg);
     const chatMessages = document.getElementById('chatMessages');
     const messageEl = document.createElement('div');
     messageEl.className = 'chat-message';
+    
+    // Add player-specific class
+    if (msg.player === 'X') {
+        messageEl.classList.add('player-x');
+        console.log('Added player-x class');
+    } else if (msg.player === 'O') {
+        messageEl.classList.add('player-o');
+        console.log('Added player-o class');
+    } else {
+        console.log('No player class added, player:', msg.player);
+    }
     
     const usernameEl = document.createElement('span');
     usernameEl.className = 'username';
@@ -209,10 +246,21 @@ function displayMoveHistory() {
     if (!gameState || !gameState.moveHistory.length) return;
     
     const lastMove = gameState.moveHistory[gameState.moveHistory.length - 1];
+    displayMove(lastMove);
+}
+
+function displayMove(move) {
     const chatMessages = document.getElementById('chatMessages');
     
     const moveEl = document.createElement('div');
     moveEl.className = 'chat-message move';
+    
+    // Add player-specific class for move history
+    if (move.player === 'X') {
+        moveEl.classList.add('player-x');
+    } else if (move.player === 'O') {
+        moveEl.classList.add('player-o');
+    }
     
     const boardNames = [
         'A3', 'B3', 'C3',
@@ -226,7 +274,7 @@ function displayMoveHistory() {
         'a1', 'b1', 'c1'
     ];
     
-    moveEl.textContent = `${lastMove.player} played ${cellNames[lastMove.cellIndex]} in ${boardNames[lastMove.boardIndex]} board`;
+    moveEl.textContent = `${move.player} played ${cellNames[move.cellIndex]} in ${boardNames[move.boardIndex]} board`;
     
     chatMessages.appendChild(moveEl);
     chatMessages.scrollTop = chatMessages.scrollHeight;

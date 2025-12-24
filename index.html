@@ -33,6 +33,14 @@
                     </div>
                 </div>
                 <div class="chat-section">
+                    <div class="chat-header">Chat + Moves</div>
+                    <div class="chat-messages" id="chatMessages"></div>
+                    <div class="chat-input-container">
+                        <input type="text" id="chatInput" placeholder="Type a message..." maxlength="200">
+                        <button onclick="sendMessage()" class="send-btn">Send</button>
+                    </div>
+                </div>
+            </div>
             <div id="winner" class="winner"></div>
             <button onclick="resetGame()">Reset Game</button>
         </div>

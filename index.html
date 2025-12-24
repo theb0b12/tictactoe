@@ -19,16 +19,20 @@
                 <div id="turnInfo"></div>
             </div>
             <div class="game-container">
-                <div class="board" id="board"></div>
-                <div class="chat-section">
-                    <div class="chat-header">Chat + Moves</div>
-                    <div class="chat-messages" id="chatMessages"></div>
-                    <div class="chat-input-container">
-                        <input type="text" id="chatInput" placeholder="Type a message..." maxlength="200">
-                        <button onclick="sendMessage()" class="send-btn">Send</button>
+                <div class="board-wrapper">
+                    <div class="board-labels-left">
+                        <div class="board-label">3</div>
+                        <div class="board-label">2</div>
+                        <div class="board-label">1</div>
+                    </div>
+                    <div class="board" id="board"></div>
+                    <div class="board-labels-bottom">
+                        <div class="board-label">A</div>
+                        <div class="board-label">B</div>
+                        <div class="board-label">C</div>
                     </div>
                 </div>
-            </div>
+                <div class="chat-section">
             <div id="winner" class="winner"></div>
             <button onclick="resetGame()">Reset Game</button>
         </div>

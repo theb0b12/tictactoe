@@ -28,21 +28,21 @@ let gameState = {
     moveHistory: []
 };
 
-function checkWinner(board) {
+function checkWinner(board){
     const lines = [
         [0, 1, 2], [3, 4, 5], [6, 7, 8],
         [0, 3, 6], [1, 4, 7], [2, 5, 8],
         [0, 4, 8], [2, 4, 6]
     ];
 
-    for (let line of lines) {
+    for(let line of lines){
         const [a, b, c] = line;
-        if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+        if (board[a] && board[a] === board[b] && board[a] === board[c]){
             return board[a];
         }
     }
 
-    if (!board.includes('') && !board.includes(null)) {
+    if(!board.includes('') && !board.includes(null)){
         return 'tie';
     }
 
@@ -53,15 +53,15 @@ io.on('connection', (socket) => {
     console.log('New player connected:', socket.id);
     
     let playerSymbol = null;
-    if (!gameState.playerX) {
+    if(!gameState.playerX){
         gameState.playerX = socket.id;
         playerSymbol = 'X';
         console.log('Player assigned as X');
-    } else if (!gameState.playerO) {
+    }else if(!gameState.playerO){
         gameState.playerO = socket.id;
         playerSymbol = 'O';
         console.log('Player assigned as O');
-    } else {
+    }else{
         playerSymbol = 'spectator';
         console.log('Player joined as spectator');
     }
@@ -99,21 +99,21 @@ io.on('connection', (socket) => {
         
         // Check if this small board is won
         const boardWinner = checkWinner(gameState.boards[boardIndex]);
-        if (boardWinner) {
+        if(boardWinner){
             gameState.boardWinners[boardIndex] = boardWinner;
             
             // Check if overall game is won
             const gameWinner = checkWinner(gameState.boardWinners);
-            if (gameWinner) {
+            if(gameWinner){
                 gameState.winner = gameWinner;
             }
         }
         
         // Set next active board
         // If the target board is already won or tied, player can play anywhere
-        if (gameState.boardWinners[cellIndex] !== null) {
+        if(gameState.boardWinners[cellIndex] !== null){
             gameState.activeBoard = null;
-        } else {
+        } else{
             gameState.activeBoard = cellIndex;
         }
         
@@ -142,10 +142,10 @@ io.on('connection', (socket) => {
         
         let username = 'Spectator';
         let playerSymbol = null;
-        if (socket.id === gameState.playerX) {
+        if (socket.id === gameState.playerX){
             username = 'Player X';
             playerSymbol = 'X';
-        } else if (socket.id === gameState.playerO) {
+        } else if (socket.id === gameState.playerO){
             username = 'Player O';
             playerSymbol = 'O';
         }
@@ -160,7 +160,7 @@ io.on('connection', (socket) => {
         gameState.chatMessages.push(chatMessage);
         
         // Keep only last 50 messages
-        if (gameState.chatMessages.length > 50) {
+        if(gameState.chatMessages.length > 50){
             gameState.chatMessages.shift();
         }
         
@@ -171,10 +171,10 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log('Player disconnected:', socket.id);
         
-        if (socket.id === gameState.playerX) {
+        if (socket.id === gameState.playerX){
             gameState.playerX = null;
             console.log('Player X disconnected');
-        } else if (socket.id === gameState.playerO) {
+        } else if(socket.id === gameState.playerO){
             gameState.playerO = null;
             console.log('Player O disconnected');
         }

@@ -18,4 +18,4 @@ Both players can now play in real time YAYAYAYA!
 
 
 ### attribution
-- Made in all or some part from both ChatGPT 5.2 and or Cladue Sonnet 4.6
+- Made with some or minor help from both ChatGPT 5.2 and or Cladue Sonnet 4.6

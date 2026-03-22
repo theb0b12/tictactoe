@@ -1,3 +1,6 @@
+## this is wip and not correct for cloudflared
+
+
 tic tak toe for the boys
 do 
 - npm install
